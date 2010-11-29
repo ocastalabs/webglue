@@ -92,15 +92,17 @@ module WebGlue
       
       begin
         old_feed = Topic.load_url(url)
-        urls = old_feed.entries.collect {|e| e.links.first.href }
+        old_entries = old_feed.entries
       rescue InvalidTopicException
-        urls = []
+        old_entries = []
       end  
 
       new_feed = nil
       begin
         MyTimer.timeout(Config::GIVEUP) do
+          puts "Loading feed #{url}.."
           new_feed = Atom::Feed.load_feed(URI.parse(url))
+          puts "Feed has #{new_feed.entries.length} entries"
         end
       rescue Exception => e
         raise e.to_s
@@ -109,8 +111,21 @@ module WebGlue
 
       Topic.save!(url, new_feed)
 
-      new_feed.entries.delete_if {|e| urls.include?(e.links.first.href) }
-      return nil unless urls.length > 0 # do not send everything first time
+      # Ensure that all entries has an atom:published element (updated is optional)
+      new_feed.entries.delete_if { |entry| entry.published.nil? }
+
+      new_feed.entries.delete_if { |new|
+        old = old_entries.find { |o| o.id == new.id }
+        break false if old.nil?
+
+        old_timestamp = old.updated.nil? ? old.published : old.updated
+        new_timestamp = new.updated.nil? ? new.published : new.updated
+
+        #puts "old_timestamp=#{old_timestamp}, new_timestamp=#{new_timestamp}, updated=" + (new_timestamp > old_timestamp).to_s
+
+        not (new_timestamp > old_timestamp)
+      }
+      return nil unless old_entries.length > 0 # do not send everything first time
       return nil unless new_feed.entries.length > 0
       return to_atom ? new_feed.to_xml : new_feed.entries
     end

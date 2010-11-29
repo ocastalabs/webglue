@@ -78,6 +78,7 @@ module WebGlue
               extheaders['X-Hub-Signature'] = "sha1=#{signature}"
             end  
             MyTimer.timeout(Config::GIVEUP) do
+              puts "Updating #{url} of new items"
               HTTPClient.post(url, msg, extheaders)
             end
           rescue Exception => e
@@ -132,6 +133,7 @@ module WebGlue
         unless params['hub.url'] and not params['hub.url'].empty?
           throw :halt, [400, "Bad request: Empty or missing 'hub.url' parameter"]
         end
+        puts "Got update on URL: " + params['hub.url']
         begin
           # TODO: move the subscribers notifications to some background job (worker?)
           hash = Topic.to_hash(params['hub.url'])
@@ -139,10 +141,16 @@ module WebGlue
           if topic.first # already registered
             # minimum 5 min interval between pings
             time_diff = (Time.now - topic.first[:updated]).to_i
-            throw :halt, [204, "204 Try after #{(300-time_diff)/60 +1} min"] if time_diff < 300
+            puts "time_diff=#{time_diff}"
+#            if time_diff < 300
+#              puts "Too fast update"
+#              throw :halt, [204, "204 Try after #{(300-time_diff)/60 +1} min"]
+#            end
             topic.update(:updated => Time.now, :dirty => 1)
             # only verified subscribers, subscribed to that topic
             subscribers = DB[:subscriptions].filter(:topic_id => topic.first[:id], :state => 0)
+            puts "subscribers.count"
+            puts subscribers.count
             atom_diff = Topic.diff(params['hub.url'], true)
             postman(subscribers, atom_diff) if (subscribers.count > 0 and atom_diff)
             topic.update(:dirty => 0)
@@ -151,6 +159,11 @@ module WebGlue
           end
           throw :halt, [204, "204 No Content"]
         rescue Exception => e
+          puts "============================================================"
+          puts e.backtrace
+          puts "------------------------------------------------------------"
+          puts e
+          puts "------------------------------------------------------------"
           throw :halt, [404, e.to_s]
         end
       end
@@ -185,7 +198,7 @@ module WebGlue
         begin
           hash =  Topic.to_hash(topic)
           tp =  DB[:topics].filter(:url => hash).first
-          throw :halt, [404, "Not Found"] unless tp[:id]
+          throw :halt, [404, "Not Found"] if tp.nil? or tp[:id].nil?
           
           state = (verify == 'async') ? 1 : 0
           query = { 'hub.mode' => mode,
@@ -214,6 +227,11 @@ module WebGlue
           throw :halt, verify == 'async' ? [202, "202 Scheduled for verification"] : 
                                            [204, "204 No Content"]
         rescue Exception => e
+          puts "============================================================"
+          puts e.backtrace
+          puts "------------------------------------------------------------"
+          puts e
+          puts "------------------------------------------------------------"
           throw :halt, [409, "Subscription verification failed: #{e.to_s}"]
         end
       end
@@ -232,6 +250,38 @@ module WebGlue
     # Debug subscribe to PubSubHubbub
     get '/subscribe' do
       erb :subscribe
+    end
+
+    class ListSubscriptions
+      def each
+        topics = DB[:topics]
+        topics.each do |topic|
+          yield "Topic\n"
+          yield " URL:     " + Topic.to_url(topic[:url]) + "\n"
+          yield " Created: " + topic[:created].to_s + "\n"
+          yield " Updated: " + topic[:updated].to_s + "\n"
+
+          subscribers = DB[:subscriptions].filter(:topic_id => topic[:id])
+          yield " Subscription count=" + subscribers.count.to_s + "\n"
+          yield " Subscriptions\n"
+          #subscribers = DB[:subscriptions].filter(:topic_id => topic.first[:id], :state => 0)
+          #subscribers = DB[:subscriptions]
+
+          subscribers.each do |sub|
+            yield "  Id:                " + sub[:id].to_s + "\n"
+            yield "  Subscriber:        " + Topic.to_url(sub[:callback]) + "\n"
+            yield "  Verification mode: " + sub[:vmode] + "\n"
+            yield "  Created:           " + (sub[:created].nil? ? "" : sub[:created]) + "\n"
+            yield "  Verified:          " + (sub[:state] == 0 ? "yes" : "no") + "\n"
+            yield "\n"
+          end
+        end
+      end
+    end
+
+    get '/subscriptions' do
+      content_type 'text/plain', :charset => 'utf-8'
+      throw :halt, [200, ListSubscriptions.new]
     end
 
     # Main hub endpoint for both publisher and subscribers
