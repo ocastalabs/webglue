@@ -1,0 +1,51 @@
+<html>
+<head>
+  <title>Subscribers</title>
+  <link rel="stylesheet" href="/css/hub.css" type="text/css" media="screen" />
+</head>
+<body>
+
+<%
+topics.each do |topic|
+s = subscriptions[topic[:id]]
+%>
+<h2>Topic</h2>
+<table>
+  <tr>
+    <th>URL</th>
+    <td><%= WebGlue::Topic.to_url(topic[:url]) %></td>
+  </tr>
+  <tr>
+    <th>Created</th>
+    <td><%= topic[:created].to_s %></td>
+  </tr>
+  <tr>
+    <th>Updated</th>
+    <td><%= topic[:updated].to_s %></td>
+  </tr>
+</table>
+<h3>Subscriptions</h3>
+<% s.each do |subscription| %>
+<table>
+  <tr>
+    <th>URL</th>
+    <td><%= WebGlue::Topic.to_url(subscription[:callback]) %></td>
+  </tr>
+  <tr>
+    <th>Verification Mode</th>
+    <td><%= subscription[:vmode] %></td>
+  </tr>
+  <tr>
+    <th>State</th>
+    <td><%= (subscription[:state] == 0 ? "yes" : "no") %></td>
+  </tr>
+  <tr>
+    <th>Created</th>
+    <td><%= subscription[:created].nil? ? "" : subscription[:created] %></td>
+  </tr>
+</table>
+<% end %>
+<% end %>
+
+</body>
+</html>

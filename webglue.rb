@@ -7,6 +7,7 @@ ENV['RACK_ENV'] ||= "development"
 
 %w{ logger sinatra sequel zlib json httpclient atom hmac-sha1 }.each { |lib| require lib }
 require 'topics'
+require 'config'
 
 module WebGlue
 
@@ -331,8 +332,13 @@ module WebGlue
     end
 
     get '/subscriptions' do
-      content_type 'text/plain', :charset => 'utf-8'
-      throw :halt, [200, ListSubscriptions.new]
+      topics = DB[:topics]
+      subscriptions = Hash.new
+      topics.each do |topic|
+        subscriptions[topic[:id]] = DB[:subscriptions].filter(:topic_id => topic[:id])
+      end
+
+      erb :subscriptions, :locals => { :topics => topics, :subscriptions => subscriptions }
     end
 
     # Main hub endpoint for both publisher and subscribers
