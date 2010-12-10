@@ -5,11 +5,7 @@
 </head>
 <body>
 
-<%
-topics.each do |topic|
-s = subscriptions[topic[:id]]
-%>
-<h2>Topic</h2>
+<h1>Topic</h1>
 <table>
   <tr>
     <th>URL</th>
@@ -24,28 +20,23 @@ s = subscriptions[topic[:id]]
     <td><%= topic[:updated].to_s %></td>
   </tr>
 </table>
-<h3>Subscriptions</h3>
-<% s.each do |subscription| %>
+<h2>Subscriptions</h2>
 <table>
+  <thead>
+    <th>Verification Mode</th>
+    <th>State</th>
+    <th>Created</th>
+    <th>Subscriber URL</th>
+  </thead>
+<% subscriptions.each do |subscription| %>
   <tr>
-    <th>URL</th>
+    <td><%= subscription[:vmode] %></td>
+    <td><%= (subscription[:state] == 0 ? "yes" : "no") %></td>
+    <td><%= subscription[:created].nil? ? "" : subscription[:created] %></td>
     <td><%= WebGlue::Topic.to_url(subscription[:callback]) %></td>
   </tr>
-  <tr>
-    <th>Verification Mode</th>
-    <td><%= subscription[:vmode] %></td>
-  </tr>
-  <tr>
-    <th>State</th>
-    <td><%= (subscription[:state] == 0 ? "yes" : "no") %></td>
-  </tr>
-  <tr>
-    <th>Created</th>
-    <td><%= subscription[:created].nil? ? "" : subscription[:created] %></td>
-  </tr>
+<% end %>
 </table>
-<% end %>
-<% end %>
 
 </body>
 </html>

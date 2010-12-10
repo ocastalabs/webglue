@@ -259,31 +259,6 @@ module WebGlue
         end
       end
 
-      class ListSubscriptions
-        def each
-          yield "List of subscriptions by topic\n\n"
-          topics = DB[:topics]
-          topics.each do |topic|
-            yield "Topic\n"
-            yield " URL:     " + Topic.to_url(topic[:url]) + "\n"
-            yield " Created: " + topic[:created].to_s + "\n"
-            yield " Updated: " + topic[:updated].to_s + "\n"
-
-            subscribers = DB[:subscriptions].filter(:topic_id => topic[:id])
-            yield " Subscriptions (count=" + subscribers.count.to_s + ")\n"
-
-            subscribers.each do |sub|
-              yield "  Id:                " + sub[:id].to_s + "\n"
-              yield "  Subscriber:        " + Topic.to_url(sub[:callback]) + "\n"
-              yield "  Created:           " + (sub[:created].nil? ? "" : sub[:created]) + "\n"
-              yield "  Mode:              " + sub[:vmode] + "\n"
-              yield "  Verified:          " + (sub[:state] == 0 ? "yes" : "no") + "\n"
-              yield "\n"
-            end
-          end
-        end
-      end
-
     end
 
     error do
@@ -302,43 +277,6 @@ module WebGlue
     # Debug subscribe to PubSubHubbub
     get '/subscribe' do
       erb :subscribe
-    end
-
-    class ListSubscriptions
-      def each
-        topics = DB[:topics]
-        topics.each do |topic|
-          yield "Topic\n"
-          yield " URL:     " + Topic.to_url(topic[:url]) + "\n"
-          yield " Created: " + topic[:created].to_s + "\n"
-          yield " Updated: " + topic[:updated].to_s + "\n"
-
-          subscribers = DB[:subscriptions].filter(:topic_id => topic[:id])
-          yield " Subscription count=" + subscribers.count.to_s + "\n"
-          yield " Subscriptions\n"
-          #subscribers = DB[:subscriptions].filter(:topic_id => topic.first[:id], :state => 0)
-          #subscribers = DB[:subscriptions]
-
-          subscribers.each do |sub|
-            yield "  Id:                " + sub[:id].to_s + "\n"
-            yield "  Subscriber:        " + Topic.to_url(sub[:callback]) + "\n"
-            yield "  Verification mode: " + sub[:vmode] + "\n"
-            yield "  Created:           " + (sub[:created].nil? ? "" : sub[:created]) + "\n"
-            yield "  Verified:          " + (sub[:state] == 0 ? "yes" : "no") + "\n"
-            yield "\n"
-          end
-        end
-      end
-    end
-
-    get '/subscriptions' do
-      topics = DB[:topics]
-      subscriptions = Hash.new
-      topics.each do |topic|
-        subscriptions[topic[:id]] = DB[:subscriptions].filter(:topic_id => topic[:id])
-      end
-
-      erb :subscriptions, :locals => { :topics => topics, :subscriptions => subscriptions }
     end
 
     # Main hub endpoint for both publisher and subscribers
@@ -360,8 +298,22 @@ module WebGlue
 
     get '/admin' do
       protected!
-      content_type 'text/plain', :charset => 'utf-8'
-      throw :halt, [200, ListSubscriptions.new]
+
+      topics = DB[:topics]
+
+      erb :admin, :locals => { :topics => topics }
+    end
+
+    get '/admin/topics/:topic' do
+      protected!
+
+      topic_id = params[:topic]
+      topic = DB[:topics].filter(:id => topic_id).first
+      throw :halt, [404, "Not Found"] if topic.nil? or topic[:id].nil?
+
+      subscriptions = DB[:subscriptions].filter(:topic_id => topic_id)
+
+      erb :subscription_by_topic, :locals => { :topic => topic, :subscriptions => subscriptions }
     end
 
     get '/admin/cleanup' do

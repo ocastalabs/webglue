@@ -6,4 +6,10 @@ label { display: block; }
 input[type="text"] {
   width: 400px;
 }
-em { font-size: 0.8em; }
+em {
+  font-size: 0.8em;
+}
+
+thead > th{
+  text-align: left;
+}

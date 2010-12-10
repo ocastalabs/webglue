@@ -1,2 +1,2 @@
-require 'webglue.rb'
+require './webglue.rb'
 run WebGlue::App
