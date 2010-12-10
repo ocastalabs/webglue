@@ -177,21 +177,27 @@ module WebGlue
           throw :halt, [400, "Bad request: Empty or missing 'hub.url' parameter"]
         end
         log_debug("Got update on URL: " + params['hub.url'])
+        now = Time.now
         begin
           # TODO: move the subscribers notifications to some background job (worker?)
           hash = Topic.to_hash(params['hub.url'])
           topic = DB[:topics].filter(:url => hash)
           if topic.first # already registered
-            log_debug("Topic exists: " + params['hub.url'])
+            log_debug("Feed updated: " + params['hub.url'])
+            topic_id = topic.first[:id]
             # minimum 5 min interval between pings
-            time_diff = (Time.now - topic.first[:updated]).to_i
-            if time_diff < 300
+            time_diff = (now - topic.first[:updated]).to_i
+            if time_diff < Config::MIN_UPDATE_PERIOD
               log_error("Too fast update (time_diff=#{time_diff}). Try after #{(300-time_diff)/60 +1} minute(s).")
               throw :halt, [204, "204 Try after #{(300-time_diff)/60 +1} minute(s)"]
             end
-            topic.update(:updated => Time.now, :dirty => 1)
+            DB.transaction do
+              DB[:events] << FeedUpdatedEvent.new(now, topic_id).to_hash
+              topic.update(:updated => now, :dirty => 1)
+            end
+            log_error("Updated db")
             # only verified subscribers, subscribed to that topic
-            subscribers = DB[:subscriptions].filter(:topic_id => topic.first[:id], :state => 0)
+            subscribers = DB[:subscriptions].filter(:topic_id => topic_id, :state => 0)
             log_debug("#{params['hub.url']} subscribers count: #{subscribers.count}")
             atom_diff = Topic.diff(params['hub.url'], true)
             postman(subscribers, atom_diff) if (subscribers.count > 0 and atom_diff)
@@ -200,8 +206,8 @@ module WebGlue
             log_debug("New topic: " + params['hub.url'])
 <<<<<<< HEAD
             DB.transaction do
-              topic_id = DB[:topics] << { :url => hash, :created => Time.now, :updated => Time.now }
-              DB[:events] << NewTopicEvent.new(Time.now, topic_id).to_hash
+              topic_id = DB[:topics] << { :url => hash, :created => now, :updated => now }
+              DB[:events] << NewTopicEvent.new(now, topic_id).to_hash
             end
 =======
             DB[:topics] << { :url => hash, :created => Time.now, :updated => Time.now }
@@ -267,11 +273,13 @@ module WebGlue
           cb =  DB[:subscriptions].filter(:topic_id => tp[:id], :callback => Topic.to_hash(callback))
           cb.delete if (mode == 'unsubscribe' or cb.first)
           if mode == 'subscribe'
+            now = Time.now
             raise "DB insert failed" unless DB.transaction do
               subscription_id = DB[:subscriptions] << {
                   :topic_id => tp[:id], :callback => Topic.to_hash(callback),
-                  :vtoken   => vtoken, :vmode => verify, :secret => secret, :state => state}
-              DB[:events] << NewSubscriptionEvent.new(Time.now, tp[:id], subscription_id).to_hash
+                  :vtoken => vtoken, :vmode => verify, :secret => secret, :state => state,
+                  :created => now}
+              DB[:events] << NewSubscriptionEvent.new(now, tp[:id], subscription_id).to_hash
             end
           end
           throw :halt, verify == 'async' ? [202, "202 Scheduled for verification"] : 
@@ -330,33 +338,6 @@ module WebGlue
       erb :subscribe
     end
 
-    class ListSubscriptions
-      def each
-        topics = DB[:topics]
-        topics.each do |topic|
-          yield "Topic\n"
-          yield " URL:     " + Topic.to_url(topic[:url]) + "\n"
-          yield " Created: " + topic[:created].to_s + "\n"
-          yield " Updated: " + topic[:updated].to_s + "\n"
-
-          subscribers = DB[:subscriptions].filter(:topic_id => topic[:id])
-          yield " Subscription count=" + subscribers.count.to_s + "\n"
-          yield " Subscriptions\n"
-          #subscribers = DB[:subscriptions].filter(:topic_id => topic.first[:id], :state => 0)
-          #subscribers = DB[:subscriptions]
-
-          subscribers.each do |sub|
-            yield "  Id:                " + sub[:id].to_s + "\n"
-            yield "  Subscriber:        " + Topic.to_url(sub[:callback]) + "\n"
-            yield "  Verification mode: " + sub[:vmode] + "\n"
-            yield "  Created:           " + (sub[:created].nil? ? "" : sub[:created]) + "\n"
-            yield "  Verified:          " + (sub[:state] == 0 ? "yes" : "no") + "\n"
-            yield "\n"
-          end
-        end
-      end
-    end
-
     get '/subscriptions' do
       content_type 'text/plain', :charset => 'utf-8'
       throw :halt, [200, ListSubscriptions.new]
@@ -376,7 +357,7 @@ module WebGlue
     post '/verify' do
       protected!
       verify_async_subs
-      return "Done."
+      "Done."
     end
 
     get '/admin' do
@@ -414,7 +395,7 @@ module WebGlue
     get '/admin/events' do
       protected!
 
-      events = DB[:events].order(:timestamp).map{ |event| Event.from_hash(event) }
+      events = DB[:events].reverse_order(:timestamp).map{ |event| Event.from_hash(event) }
       erb :events, :locals => { :events => events }
     end
 

@@ -2,6 +2,7 @@ module WebGlue
   class Event
     NEW_TOPIC_EVENT_CODE = 1
     NEW_SUBSCRIPTION_EVENT_CODE = 2
+    FEED_UPDATED_EVENT_CODE = 3
 
     attr_reader :timestamp, :topic_id, :subscription_id
 
@@ -27,6 +28,8 @@ module WebGlue
           NewTopicEvent.from_hash(hash)
         when NEW_SUBSCRIPTION_EVENT_CODE
           NewSubscriptionEvent.from_hash(hash)
+        when FEED_UPDATED_EVENT_CODE
+          FeedUpdatedEvent.from_hash(hash)
       end
     end
 
@@ -64,6 +67,20 @@ module WebGlue
 
     def to_string
       "New subscription"
+    end
+  end
+
+  class FeedUpdatedEvent < Event
+    def initialize(timestamp, topic_id)
+      super(timestamp, FEED_UPDATED_EVENT_CODE, topic_id, nil)
+    end
+
+    def self.from_hash(hash)
+      self.new(hash[:timestamp], hash[:topic_id])
+    end
+
+    def to_string
+      "Feed updated"
     end
   end
 end
