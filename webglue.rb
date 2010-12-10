@@ -204,14 +204,10 @@ module WebGlue
             topic.update(:dirty => 0)
           else
             log_debug("New topic: " + params['hub.url'])
-<<<<<<< HEAD
             DB.transaction do
               topic_id = DB[:topics] << { :url => hash, :created => now, :updated => now }
               DB[:events] << NewTopicEvent.new(now, topic_id).to_hash
             end
-=======
-            DB[:topics] << { :url => hash, :created => Time.now, :updated => Time.now }
->>>>>>> bundler support, better logging (thanks to Trygve Laugstøl)
           end
           throw :halt, [204, "204 No Content"]
         rescue Exception => e
@@ -290,34 +286,6 @@ module WebGlue
         end
       end
 
-<<<<<<< HEAD
-=======
-      class ListSubscriptions
-        def each
-          yield "List of subscriptions by topic\n\n"
-          topics = DB[:topics]
-          topics.each do |topic|
-            yield "Topic\n"
-            yield " URL:     " + Topic.to_url(topic[:url]) + "\n"
-            yield " Created: " + topic[:created].to_s + "\n"
-            yield " Updated: " + topic[:updated].to_s + "\n"
-
-            subscribers = DB[:subscriptions].filter(:topic_id => topic[:id])
-            yield " Subscriptions (count=" + subscribers.count.to_s + ")\n"
-
-            subscribers.each do |sub|
-              yield "  Id:                " + sub[:id].to_s + "\n"
-              yield "  Subscriber:        " + Topic.to_url(sub[:callback]) + "\n"
-              yield "  Created:           " + (sub[:created].nil? ? "" : sub[:created]) + "\n"
-              yield "  Mode:              " + sub[:vmode] + "\n"
-              yield "  Verified:          " + (sub[:state] == 0 ? "yes" : "no") + "\n"
-              yield "\n"
-            end
-          end
-        end
-      end
-
->>>>>>> bundler support, better logging (thanks to Trygve Laugstøl)
     end
 
     error do
@@ -362,7 +330,6 @@ module WebGlue
 
     get '/admin' do
       protected!
-<<<<<<< HEAD
 
       topics = DB[:topics]
 
@@ -399,11 +366,5 @@ module WebGlue
       erb :events, :locals => { :events => events }
     end
 
-=======
-      content_type 'text/plain', :charset => 'utf-8'
-      throw :halt, [200, ListSubscriptions.new]
-    end
-
->>>>>>> bundler support, better logging (thanks to Trygve Laugstøl)
   end
 end
