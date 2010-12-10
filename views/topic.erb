@@ -21,6 +21,9 @@
     <td><%= topic[:updated].to_s %></td>
   </tr>
 </table>
+
+<a href="/admin/events-for-topic/<%=topic[:id]%>">Events for this topic</a>
+
 <h2>Subscriptions</h2>
 <table>
   <thead>

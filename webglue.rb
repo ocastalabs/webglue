@@ -345,7 +345,7 @@ module WebGlue
 
       subscriptions = DB[:subscriptions].filter(:topic_id => topic_id)
 
-      erb :subscription_by_topic, :locals => { :topic => topic, :subscriptions => subscriptions }
+      erb :topic, :locals => { :topic => topic, :subscriptions => subscriptions }
     end
 
     get '/admin/cleanup' do
@@ -363,7 +363,17 @@ module WebGlue
       protected!
 
       events = DB[:events].reverse_order(:timestamp).map{ |event| Event.from_hash(event) }
-      erb :events, :locals => { :events => events }
+
+      erb :events, :locals => { :events => events, :show_topic_link => true }
+    end
+
+    get '/admin/events-for-topic/:topic' do
+      protected!
+
+      topic_id = params[:topic]
+      events = DB[:events].filter(:topic_id => topic_id).reverse_order(:timestamp).map{ |event| Event.from_hash(event) }
+
+      erb :events, :locals => { :events => events, :show_topic_link => false }
     end
 
   end

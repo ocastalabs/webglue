@@ -19,7 +19,7 @@
     <td><%= event.timestamp.to_s %></td>
     <td><%= event.to_string %></td>
     <td>
-      <% if(!event.topic_id.nil?) %>
+      <% if(!event.topic_id.nil? && show_topic_link) %>
       <a href="/admin/topics/<%= event.topic_id %>">Topic</a>
       <% end %>
     </td>
