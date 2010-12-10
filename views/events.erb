@@ -1,0 +1,35 @@
+<html>
+<head>
+  <title>Hub - Admin - Events</title>
+  <link rel="stylesheet" href="/css/hub.css" type="text/css" media="screen" />
+</head>
+<body>
+<h1>Events</h1>
+<%= erb :_menu %>
+
+<table>
+  <thead>
+    <th>Timestamp</th>
+    <th>Code</th>
+    <th>Topic</th>
+    <th>Subscription</th>
+  </thead>
+<% events.each do |event| %>
+  <tr>
+    <td><%= event.timestamp.to_s %></td>
+    <td><%= event.to_string %></td>
+    <td>
+      <% if(!event.topic_id.nil?) %>
+      <a href="/admin/topics/<%= event.topic_id %>">Topic</a>
+      <% end %>
+    </td>
+    <td>
+      <% if(!event.subscription_id.nil?) %>
+      <%= event.subscription_id %>
+      <% end %>
+    </td>
+  </tr>
+<% end %>
+</table>
+</body>
+</html>

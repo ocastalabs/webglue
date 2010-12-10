@@ -5,7 +5,8 @@
 </head>
 <body>
 
-<h1>Webglue administration</h1>
+<h1>Webglue Console</h1>
+<%= erb :_menu %>
 
 <h2>Topics</h2>
 <table>
@@ -22,11 +23,10 @@
     <td><%= topic[:updated].to_s %></td>
     <td>
       <a href="<%= WebGlue::Topic.to_url(topic[:url]) %>">Download feed</a>
-      <a href="/admin/topics/<%= topic[:id] %>">Subscribers</a>
+      <a href="/admin/topics/<%= topic[:id] %>">Details</a>
     </td>
   </tr>
 <% end %>
 </table>
 </body>
 </html>
-

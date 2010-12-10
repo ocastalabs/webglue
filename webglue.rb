@@ -6,13 +6,14 @@ require "bundler/setup"
 ENV['RACK_ENV'] ||= "development"
 
 %w{ logger sinatra sequel zlib json httpclient atom hmac-sha1 }.each { |lib| require lib }
-require 'topics'
-require 'config'
+require './topics'
+require './config'
+require './event'
 
 module WebGlue
 
   class App < Sinatra::Base
- 
+
     enable :raise_errors
     enable :logging, :dump_errors
     disable :sessions
@@ -56,6 +57,18 @@ module WebGlue
           index       [:created] 
           index       [:vmode] 
           index       [:topic_id, :callback], :unique => true
+        end
+      end
+
+      unless DB.table_exists? "events"
+        DB.create_table :events do
+          foreign_key :topic_id
+          foreign_key :subscription_id
+          integer     :code
+          time        :timestamp
+          index       [:timestamp]
+          index       [:topic_id] 
+          index       [:subscription_id]
         end
       end
     end
@@ -185,7 +198,14 @@ module WebGlue
             topic.update(:dirty => 0)
           else
             log_debug("New topic: " + params['hub.url'])
+<<<<<<< HEAD
+            DB.transaction do
+              topic_id = DB[:topics] << { :url => hash, :created => Time.now, :updated => Time.now }
+              DB[:events] << NewTopicEvent.new(Time.now, topic_id).to_hash
+            end
+=======
             DB[:topics] << { :url => hash, :created => Time.now, :updated => Time.now }
+>>>>>>> bundler support, better logging (thanks to Trygve Laugstøl)
           end
           throw :halt, [204, "204 No Content"]
         rescue Exception => e
@@ -247,9 +267,12 @@ module WebGlue
           cb =  DB[:subscriptions].filter(:topic_id => tp[:id], :callback => Topic.to_hash(callback))
           cb.delete if (mode == 'unsubscribe' or cb.first)
           if mode == 'subscribe'
-            raise "DB insert failed" unless DB[:subscriptions] << {
-              :topic_id => tp[:id], :callback => Topic.to_hash(callback), 
-              :vtoken => vtoken, :vmode => verify, :secret => secret, :state => state }
+            raise "DB insert failed" unless DB.transaction do
+              subscription_id = DB[:subscriptions] << {
+                  :topic_id => tp[:id], :callback => Topic.to_hash(callback),
+                  :vtoken   => vtoken, :vmode => verify, :secret => secret, :state => state}
+              DB[:events] << NewSubscriptionEvent.new(Time.now, tp[:id], subscription_id).to_hash
+            end
           end
           throw :halt, verify == 'async' ? [202, "202 Scheduled for verification"] : 
                                            [204, "204 No Content"]
@@ -259,6 +282,34 @@ module WebGlue
         end
       end
 
+<<<<<<< HEAD
+=======
+      class ListSubscriptions
+        def each
+          yield "List of subscriptions by topic\n\n"
+          topics = DB[:topics]
+          topics.each do |topic|
+            yield "Topic\n"
+            yield " URL:     " + Topic.to_url(topic[:url]) + "\n"
+            yield " Created: " + topic[:created].to_s + "\n"
+            yield " Updated: " + topic[:updated].to_s + "\n"
+
+            subscribers = DB[:subscriptions].filter(:topic_id => topic[:id])
+            yield " Subscriptions (count=" + subscribers.count.to_s + ")\n"
+
+            subscribers.each do |sub|
+              yield "  Id:                " + sub[:id].to_s + "\n"
+              yield "  Subscriber:        " + Topic.to_url(sub[:callback]) + "\n"
+              yield "  Created:           " + (sub[:created].nil? ? "" : sub[:created]) + "\n"
+              yield "  Mode:              " + sub[:vmode] + "\n"
+              yield "  Verified:          " + (sub[:state] == 0 ? "yes" : "no") + "\n"
+              yield "\n"
+            end
+          end
+        end
+      end
+
+>>>>>>> bundler support, better logging (thanks to Trygve Laugstøl)
     end
 
     error do
@@ -277,6 +328,38 @@ module WebGlue
     # Debug subscribe to PubSubHubbub
     get '/subscribe' do
       erb :subscribe
+    end
+
+    class ListSubscriptions
+      def each
+        topics = DB[:topics]
+        topics.each do |topic|
+          yield "Topic\n"
+          yield " URL:     " + Topic.to_url(topic[:url]) + "\n"
+          yield " Created: " + topic[:created].to_s + "\n"
+          yield " Updated: " + topic[:updated].to_s + "\n"
+
+          subscribers = DB[:subscriptions].filter(:topic_id => topic[:id])
+          yield " Subscription count=" + subscribers.count.to_s + "\n"
+          yield " Subscriptions\n"
+          #subscribers = DB[:subscriptions].filter(:topic_id => topic.first[:id], :state => 0)
+          #subscribers = DB[:subscriptions]
+
+          subscribers.each do |sub|
+            yield "  Id:                " + sub[:id].to_s + "\n"
+            yield "  Subscriber:        " + Topic.to_url(sub[:callback]) + "\n"
+            yield "  Verification mode: " + sub[:vmode] + "\n"
+            yield "  Created:           " + (sub[:created].nil? ? "" : sub[:created]) + "\n"
+            yield "  Verified:          " + (sub[:state] == 0 ? "yes" : "no") + "\n"
+            yield "\n"
+          end
+        end
+      end
+    end
+
+    get '/subscriptions' do
+      content_type 'text/plain', :charset => 'utf-8'
+      throw :halt, [200, ListSubscriptions.new]
     end
 
     # Main hub endpoint for both publisher and subscribers
@@ -298,6 +381,7 @@ module WebGlue
 
     get '/admin' do
       protected!
+<<<<<<< HEAD
 
       topics = DB[:topics]
 
@@ -327,5 +411,18 @@ module WebGlue
       throw :halt, [200, "#{count} topics deleted."]
     end
 
+    get '/admin/events' do
+      protected!
+
+      events = DB[:events].order(:timestamp).map{ |event| Event.from_hash(event) }
+      erb :events, :locals => { :events => events }
+    end
+
+=======
+      content_type 'text/plain', :charset => 'utf-8'
+      throw :halt, [200, ListSubscriptions.new]
+    end
+
+>>>>>>> bundler support, better logging (thanks to Trygve Laugstøl)
   end
 end

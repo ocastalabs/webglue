@@ -1,7 +1,7 @@
 begin
   require 'system_timer'
   MyTimer = SystemTimer
-rescue
+rescue LoadError
   require 'timeout'
   MyTimer = Timeout
 end
@@ -122,8 +122,5 @@ module WebGlue
       return nil unless new_feed.entries.length > 0
       return to_atom ? new_feed.to_xml : new_feed.entries
     end
-
-    def Topic.atom_diff(url)
-    end  
-  end  
+  end
 end  
