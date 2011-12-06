@@ -9,6 +9,7 @@ ENV['RACK_ENV'] ||= "development"
 require './topics'
 require './config'
 require './event'
+require './activity'
 
 module WebGlue
 
@@ -28,6 +29,9 @@ module WebGlue
         LOGGER.level = Logger::DEBUG
         APP_DEBUG = Config::DEBUG
       end
+
+      Atom::Entry.add_extension_namespace :activity, "http://activitystrea.ms/spec/1.0/"
+      Atom::Entry.elements "activity:location", :class => Atom::Extensions::Location
 
       DB = Sequel.connect(ENV['DATABASE_URL'] || 'sqlite://webglue.db')
     
