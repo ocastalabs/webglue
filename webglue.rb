@@ -33,7 +33,7 @@ module WebGlue
       Atom::Entry.add_extension_namespace :activity, "http://activitystrea.ms/spec/1.0/"
       Atom::Entry.elements "activity:location", :class => Atom::Extensions::Location
 
-      DB = Sequel.connect(ENV['DATABASE_URL'] || 'sqlite://webglue.db')
+      DB = Sequel.connect(ENV['DATABASE_URL'] || 'sqlite://webglue.db') 
     
       unless DB.table_exists? "topics"
         DB.create_table :topics do
@@ -109,7 +109,7 @@ module WebGlue
       def authorized?
         @auth ||=  Rack::Auth::Basic::Request.new(request.env)
         @auth.provided? && @auth.basic? && @auth.credentials && 
-                           @auth.credentials == ['admin', 'secret']
+                           @auth.credentials == [Config::ADMIN, Config::PASSWORD]
       end
 
       def gen_id
@@ -209,7 +209,7 @@ module WebGlue
           else
             log_debug("New topic: " + params['hub.url'])
             DB.transaction do
-              topic_id = DB[:topics] << { :url => hash, :created => now, :updated => now }
+              topic_id = DB[:topics].insert(:url => hash, :created => now, :updated => now)
               DB[:events] << NewTopicEvent.new(now, topic_id).to_hash
             end
           end
@@ -275,10 +275,10 @@ module WebGlue
           if mode == 'subscribe'
             now = Time.now
             raise "DB insert failed" unless DB.transaction do
-              subscription_id = DB[:subscriptions] << {
+              subscription_id = DB[:subscriptions].insert(
                   :topic_id => tp[:id], :callback => Topic.to_hash(callback),
                   :vtoken => vtoken, :vmode => verify, :secret => secret, :state => state,
-                  :created => now}
+                  :created => now)
               DB[:events] << NewSubscriptionEvent.new(now, tp[:id], subscription_id).to_hash
             end
           end
