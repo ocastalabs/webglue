@@ -80,12 +80,23 @@ module WebGlue
       end  
     end
 
+    def Topic.isNew(new, old_entries)
+      old = old_entries.find { |o| o.id.eql?(new.id) }
+      return false if old.nil?
+
+      old_timestamp = old.updated.nil? ? old.published : old.updated
+      new_timestamp = new.updated.nil? ? new.published : new.updated
+      #puts "old_timestamp=#{old_timestamp}, new_timestamp=#{new_timestamp}, updated=" + (new_timestamp > old_timestamp).to_s
+      return new_timestamp == old_timestamp
+    end
+
     def Topic.diff(url, to_atom = false)
       raise InvalidTopicException unless url
       
       begin
         old_feed = Topic.load_url(url)
         old_entries = old_feed.entries
+        #puts "Read #{old_entries.entries.length} old entries"
       rescue InvalidTopicException
         old_entries = []
       end  
@@ -93,9 +104,9 @@ module WebGlue
       new_feed = nil
       begin
         MyTimer.timeout(Config::GIVEUP) do
-          puts "Loading feed #{url}.."
+          #puts "Loading feed #{url}.."
           new_feed = Atom::Feed.load_feed(URI.parse(url))
-          puts "Feed has #{new_feed.entries.length} entries"
+          #puts "Feed has #{new_feed.entries.length} entries"
         end
       rescue Exception => e
         raise e.to_s
@@ -106,18 +117,8 @@ module WebGlue
 
       # Ensure that all entries has an atom:published element (updated is optional)
       new_feed.entries.delete_if { |entry| entry.published.nil? }
-
-      new_feed.entries.delete_if { |new|
-        old = old_entries.find { |o| o.id == new.id }
-        break false if old.nil?
-
-        old_timestamp = old.updated.nil? ? old.published : old.updated
-        new_timestamp = new.updated.nil? ? new.published : new.updated
-
-        #puts "old_timestamp=#{old_timestamp}, new_timestamp=#{new_timestamp}, updated=" + (new_timestamp > old_timestamp).to_s
-
-        not (new_timestamp > old_timestamp)
-      }
+      new_feed.entries.delete_if { |entry| Topic.isNew(entry, old_entries) }
+      #puts "Updating #{new_feed.entries.length} items\n"
       return nil unless old_entries.length > 0 # do not send everything first time
       return nil unless new_feed.entries.length > 0
       return to_atom ? new_feed.to_xml : new_feed.entries

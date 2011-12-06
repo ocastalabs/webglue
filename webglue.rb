@@ -33,7 +33,7 @@ module WebGlue
       Atom::Entry.add_extension_namespace :activity, "http://activitystrea.ms/spec/1.0/"
       Atom::Entry.elements "activity:location", :class => Atom::Extensions::Location
 
-      DB = Sequel.connect(ENV['DATABASE_URL'] || 'sqlite://webglue.db') 
+      DB = Sequel.sqlite('webglue.db')
     
       unless DB.table_exists? "topics"
         DB.create_table :topics do
@@ -199,7 +199,6 @@ module WebGlue
               DB[:events] << FeedUpdatedEvent.new(now, topic_id).to_hash
               topic.update(:updated => now, :dirty => 1)
             end
-            log_error("Updated db")
             # only verified subscribers, subscribed to that topic
             subscribers = DB[:subscriptions].filter(:topic_id => topic_id, :state => 0)
             log_debug("#{params['hub.url']} subscribers count: #{subscribers.count}")
