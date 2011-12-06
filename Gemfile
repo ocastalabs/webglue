@@ -2,7 +2,7 @@ source 'http://rubygems.org'
 source 'http://gems.github.com'
 
 gem 'rake'
-gem 'libxml-ruby', '= 1.1.3'
+gem 'libxml-ruby'
 gem 'sqlite3-ruby'
 gem 'sequel'
 gem 'sinatra'
